@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roi-simulator
+  labels:
+    app: roi-simulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: roi-simulator
+  template:
+    metadata:
+      labels:
+        app: roi-simulator
+    spec:
+      containers:
+        - name: roi-simulator
+          image: ghcr.io/zeli111/roi-simulator:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: roi-simulator
+spec:
+  type: ClusterIP
+  selector:
+    app: roi-simulator
+  ports:
+    - port: 80
+      targetPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: roi-simulator
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+    - hosts:
+        - roi-simulator.example.com
+      secretName: roi-simulator-tls
+  rules:
+    - host: roi-simulator.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: roi-simulator
+                port:
+                  number: 80
