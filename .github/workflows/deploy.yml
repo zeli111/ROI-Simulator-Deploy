@@ -1,4 +1,4 @@
-name: Build and Push ROI Simulator
+name: Build, Push and Deploy ROI Simulator
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,11 +21,27 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_PAT }} # 你的 PAT 存在仓库 Secrets 里
+          password: ${{ secrets.GH_PAT }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: ghcr.io/zeli111/roi-simulator:latest
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl set image deployment/roi-simulator roi-simulator=ghcr.io/zeli111/roi-simulator:latest --record
+          kubectl rollout status deployment/roi-simulator
